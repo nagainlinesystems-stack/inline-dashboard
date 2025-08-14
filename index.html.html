@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Inline Systems Prototype</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f8fafc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .screen {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    width: 350px;
+  }
+  h1 {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+  }
+  label {
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #444;
+  }
+  input {
+    width: 100%;
+    padding: 8px;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 16px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #1e4fc4;
+  }
+  .hidden {
+    display: none;
+  }
+  /* Dashboard background gradient */
+  #dashboardScreen {
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    color: white;
+  }
+  .dashboard-card {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .dashboard-card:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  .error {
+    color: red;
+    font-size: 13px;
+    margin-top: 8px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen" class="screen">
+  <h1>Inline Systems Private Limited</h1>
+  <label for="username">Username:</label>
+  <input type="text" id="username" placeholder="Enter username">
+  
+  <label for="password">Password:</label>
+  <input type="password" id="password" placeholder="Enter password">
+  
+  <button id="loginBtn">LOGIN</button>
+  <div id="errorMsg" class="error hidden">Invalid username or password</div>
+</div>
+
+<!-- Dashboard Screen -->
+<div id="dashboardScreen" class="screen hidden">
+  <h1>Dashboard</h1>
+  <div class="dashboard-card">📄 Ticket Claim</div>
+  <div class="dashboard-card">⏳ Pending Areas</div>
+  <div class="dashboard-card">
+  <a href="https://mail.google.com/mail/?view=cm&fs=1&to=chandhruj@inlinesystems.co.in" 
+     target="_blank" 
+     style="color: white; text-decoration: none;">
+     ✉️ Email
+  </a>
+</div>
+
+</div>
+
+<script>
+  document.getElementById("loginBtn").onclick = function() {
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    
+    if (username === "naga" && password === "chandhru") {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("dashboardScreen").classList.remove("hidden");
+    } else {
+      document.getElementById("errorMsg").classList.remove("hidden");
+    }
+  };
+</script>
+
+</body>
+</html>
+
+
+
