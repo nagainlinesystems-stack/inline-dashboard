@@ -112,7 +112,7 @@ function openDashboard(){
  uDept.innerHTML=currentUser.dept;
  uRole.innerHTML=currentUser.role==="admin"?"Admin":"Employee";
  initDept();
- updateUI();
+ listenRealtime();
 }
 
 /* INIT DEPT */
@@ -120,23 +120,27 @@ function initDept(){
  const ref=db.ref("departments/"+currentUser.dept);
  ref.get().then(s=>{
    if(!s.exists()){
-     ref.set({budget:500000,history:[]});
+     ref.set({budget:500000,history:{}});
    }
  });
 }
 
-/* UPDATE UI */
-function updateUI(){
+/* REALTIME LISTENER */
+function listenRealtime(){
  const ref=db.ref("departments/"+currentUser.dept);
- ref.on("value",s=>{
-   const d=s.val();
+ ref.on("value",snap=>{
+   const d=snap.val();
    if(!d) return;
-   let used=d.history.filter(h=>h.status==="approved")
-             .reduce((a,b)=>a+b.amount,0);
+
+   const list=Object.entries(d.history||{});
+   const used=list
+     .filter(([k,x])=>x.status==="approved")
+     .reduce((s,[k,x])=>s+x.amount,0);
+
    balance.value=d.budget-used;
    approvalBox.style.display=currentUser.role==="admin"?"block":"none";
-   loadHistory(d.history);
-   if(currentUser.role==="admin") loadApprovals(d.history);
+
+   render(list);
  });
 }
 
@@ -145,48 +149,50 @@ function sendRequest(){
  const itemVal=item.value.trim();
  const amt=+amount.value;
  if(!itemVal||amt<=0){info.innerHTML="Invalid data";return;}
- const ref=db.ref("departments/"+currentUser.dept+"/history");
- ref.push({
+
+ db.ref("departments/"+currentUser.dept+"/history").push({
    user:currentUser.name,
    item:itemVal,
    amount:amt,
    status:"pending"
  });
- info.innerHTML="Request sent";
+ info.innerHTML="Request sent for approval";
  item.value=amount.value="";
 }
 
-/* HISTORY */
-function loadHistory(h){
+/* RENDER TABLES */
+function render(list){
  historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th>Status</th></tr>";
- h.forEach(x=>{
-  if(currentUser.role==="admin"||x.user===currentUser.name)
-   historyTable.innerHTML+=`
-   <tr><td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
-   <td class="${x.status}">${x.status}</td></tr>`;
- });
-}
-
-/* APPROVALS */
-function loadApprovals(h){
  approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th colspan=2>Action</th></tr>";
- h.forEach((x,i)=>{
-  if(x.status==="pending"){
-   approvalTable.innerHTML+=`
-   <tr>
-   <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
-   <td><button class="btn-green" onclick="updateStatus(${i},'approved')">Approve</button></td>
-   <td><button class="btn-red" onclick="updateStatus(${i},'cancelled')">Cancel</button></td>
-   </tr>`;
-  }
+
+ list.forEach(([key,x])=>{
+   if(currentUser.role==="admin"||x.user===currentUser.name){
+     historyTable.innerHTML+=`
+     <tr>
+       <td>${x.user}</td><td>${x.item}</td>
+       <td>${x.amount}</td>
+       <td class="${x.status}">${x.status}</td>
+     </tr>`;
+   }
+
+   if(currentUser.role==="admin" && x.status==="pending"){
+     approvalTable.innerHTML+=`
+     <tr>
+       <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
+       <td><button class="btn-green" onclick="setStatus('${key}','approved')">Approve</button></td>
+       <td><button class="btn-red" onclick="setStatus('${key}','cancelled')">Cancel</button></td>
+     </tr>`;
+   }
  });
 }
 
-function updateStatus(i,s){
- const ref=db.ref("departments/"+currentUser.dept+"/history/"+i);
- ref.update({status:s});
+/* APPROVE / CANCEL */
+function setStatus(key,status){
+ db.ref("departments/"+currentUser.dept+"/history/"+key)
+   .update({status});
 }
 
+/* LOGOUT */
 function logout(){location.reload();}
 </script>
 </body>
