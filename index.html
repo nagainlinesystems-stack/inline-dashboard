@@ -1,365 +1,273 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Editable Sales Scoreboard</title>
+<title>Department Fund Manager</title>
+
 <style>
-  :root{--bg:#fff;--ink:#111;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;}
-  body{font-family:Segoe UI,Arial,sans-serif;margin:20px;color:var(--ink);background:var(--bg)}
-  h1{font-size:20px;margin:0 0 6px}
-  .subtitle{color:var(--muted);margin-bottom:14px}
-  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-  .btn{padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:#fafafa;cursor:pointer}
-  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .sheet{margin:18px 0}
-  table{width:100%;border-collapse:collapse;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  thead th{background:#fbfdff;padding:10px;text-align:left;border-bottom:1px solid var(--line);font-weight:600;position:sticky;top:0}
-  tbody td{padding:10px;border-bottom:1px solid var(--line)}
-  tbody tr.changed{background: #fff7ef}
-  td[contenteditable="true"]{outline: none;min-width:40px}
-  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:6px}
-  .small{font-size:13px;color:var(--muted)}
-  .status{font-size:13px;color:var(--muted);margin-left:8px}
-  .danger{color:#b91c1c}
+body{
+    margin:0;
+    min-height:100vh;
+    font-family:Arial;
+    background:
+      radial-gradient(circle at 15% 20%, #667eea 0%, transparent 45%),
+      radial-gradient(circle at 85% 80%, #43cea2 0%, transparent 45%),
+      linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+}
+.card{
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 20px 40px rgba(0,0,0,.35);
+}
+#loginPage{
+    width:360px;
+    margin:120px auto;
+    padding:25px;
+    text-align:center;
+}
+#dashboard{
+    display:none;
+    padding:40px 20px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+input{
+    width:100%;
+    padding:12px;
+    margin:8px 0;
+    border-radius:8px;
+    border:1px solid #aaa;
+}
+button{
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    font-weight:bold;
+    color:white;
+    cursor:pointer;
+}
+.btn-blue{background:#007bff}
+.btn-green{background:#28a745}
+.btn-red{background:#dc3545}
+.box{
+    width:520px;
+    padding:22px;
+    margin-bottom:25px;
+}
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+th,td{
+    border:1px solid #bbb;
+    padding:8px;
+    text-align:center;
+}
+.pending{color:orange;font-weight:bold}
+.approved{color:green;font-weight:bold}
+.cancelled{color:red;font-weight:bold}
+h2,h3{text-align:center}
 </style>
 </head>
+
 <body>
 
-<h1>Editable Sales Scoreboard</h1>
-<div class="subtitle">Click a cell to edit. Use the buttons to download CSV or sync to SharePoint.</div>
-
-<!-- Page-level controls -->
-<div class="controls">
-  <button id="makeEditable" class="btn">Make all sheets editable</button>
-  <button id="saveAllCSV" class="btn">Download all sheets as CSV (zip)</button>
-  <button id="syncAll" class="btn primary">Sync all changed rows to SharePoint</button>
-  <span id="globalStatus" class="status"></span>
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="card">
+    <h2>Login</h2>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button class="btn-blue" onclick="login()">Login</button>
+    <p id="msg" style="color:red;font-weight:bold"></p>
 </div>
 
-<!--
-  IMPORTANT:
-  - This HTML expects tables already present in the DOM (like the sales_scoreboard.html you generated).
-  - If tables are not present, sample demo table below will be used.
--->
+<!-- DASHBOARD -->
+<div id="dashboard">
+    <h2 style="color:white">Department Fund Dashboard</h2>
+    <p style="color:white">
+        User: <b><span id="uName"></span></b> |
+        Dept: <b><span id="uDept"></span></b> |
+        Role: <b><span id="uRole"></span></b>
+    </p>
+    <button class="btn-red" onclick="logout()">Logout</button>
 
-<!-- If you already have tables created from Excel, they will appear here.
-     For demonstration, we include a sample table (remove if not needed). -->
+    <!-- USAGE REQUEST -->
+    <div class="card box">
+        <h3>Usage Request</h3>
+        <input id="balance" readonly>
+        <input id="item" placeholder="Item Name">
+        <input id="amount" type="number" placeholder="Amount">
+        <button class="btn-blue" onclick="sendRequest()">Send Request</button>
+        <p id="info"></p>
+    </div>
 
-<section class="sheet" id="sheet_demo">
-  <h2>Demo — Sales Scoreboard (sample)</h2>
-  <div class="toolbar">
-    <button class="btn" data-download="sheet_demo">Download CSV</button>
-    <button class="btn" data-sync="sheet_demo">Sync to SharePoint</button>
-    <span class="small">Edited rows: <span class="small" id="count_sheet_demo">0</span></span>
-  </div>
+    <!-- APPROVAL (ADMIN ONLY) -->
+    <div id="approvalBox" class="card box">
+        <h3>Pending Requests (Admin Only)</h3>
+        <table id="approvalTable"></table>
+    </div>
 
-  <table id="table_sheet_demo" data-sheet-name="SalesScoreboard">
-    <thead>
-      <tr>
-        <th onclick="sortTable('table_sheet_demo',0)">ID</th>
-        <th onclick="sortTable('table_sheet_demo',1)">Name</th>
-        <th onclick="sortTable('table_sheet_demo',2)">Region</th>
-        <th onclick="sortTable('table_sheet_demo',3)">Performance</th>
-        <th onclick="sortTable('table_sheet_demo',4)">Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr><td>1</td><td>Shakthi</td><td>East</td><td>0</td><td></td></tr>
-      <tr><td>2</td> <td>Ravi</td>  <td>West</td> <td>5</td> <td>Good</td></tr>
-      <tr><td>3</td> <td>Meena</td>  <td>North</td><td>8</td> <td></td></tr>
-    </tbody>
-  </table>
-</section>
+    <!-- HISTORY -->
+    <div class="card box">
+        <h3>History</h3>
+        <table id="historyTable"></table>
+    </div>
+</div>
 
 <script>
-/*
-  Editable HTML scoreboard script
-  - Makes table cells editable
-  - Tracks changed rows (adds CSS class .changed)
-  - Export CSV (per-sheet and all sheets as separate downloads)
-  - Template function to sync changed rows to SharePoint List via REST API
-    -- You MUST supply a BEARER_TOKEN and change SITE_URL & LIST_NAME mapping
-*/
-
-// -------------------- Utilities --------------------
-function qsAll(sel, root=document){ return Array.from(root.querySelectorAll(sel)); }
-function qs(sel, root=document){ return root.querySelector(sel); }
-
-function csvEscape(val){
-  if (val == null) return '';
-  const str = String(val).replace(/\r/g,'').replace(/\n/g,' ');
-  if (/["\n,]/.test(str)) return '"' + str.replace(/"/g,'""') + '"';
-  return str;
-}
-
-function tableToCSV(table){
-  const rows = [];
-  // headers
-  const headers = Array.from(table.tHead.rows[0].cells).map(h=>h.innerText.trim());
-  rows.push(headers.map(csvEscape).join(','));
-  // body
-  Array.from(table.tBodies[0].rows).forEach(tr=>{
-    const cells = Array.from(tr.cells).map(td=>csvEscape(td.innerText.trim()));
-    rows.push(cells.join(','));
-  });
-  return rows.join('\r\n');
-}
-
-function downloadFile(filename, content, mime='text/csv'){
-  const blob = new Blob([content], {type: mime});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; document.body.appendChild(a);
-  a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-
-// -------------------- Editing & tracking --------------------
-function makeEditableForTable(table){
-  const tbody = table.tBodies[0];
-  if (!tbody) return;
-  Array.from(tbody.rows).forEach(tr=>{
-    Array.from(tr.cells).forEach(td=>{
-      // We typically don't make ID or header columns editable; let user decide.
-      // By default make all editable except if the cell text is empty and the header says ID
-      td.setAttribute('contenteditable','true');
-      td.addEventListener('input', ()=> {
-        tr.classList.add('changed');
-        updateCountForTable(table);
-      });
-      // mark blur to compress whitespace
-      td.addEventListener('blur', ()=> {
-        td.innerText = td.innerText.trim();
-      });
-    });
-  });
-  updateCountForTable(table);
-}
-
-function updateCountForTable(table){
-  const sheetId = table.id.replace('table_','table_'); // identity
-  const parent = table.closest('.sheet');
-  if (!parent) return;
-  const countSpan = parent.querySelector('[id^="count_"], .small');
-  const changed = table.tBodies[0] ? table.tBodies[0].querySelectorAll('tr.changed').length : 0;
-  // try specific ID first
-  const specific = parent.querySelector('[id^="count_"]');
-  if(specific) specific.innerText = changed;
-  else if(countSpan) countSpan.innerText = changed;
-}
-
-// -------------------- Sort (simple) --------------------
-function sortTable(tableId, colIndex){
-  const table = document.getElementById(tableId);
-  if (!table) return;
-  const dirAttr = table.getAttribute('data-sortdir') || 'asc';
-  const newDir = dirAttr === 'asc' ? 'desc' : 'asc';
-  const rows = Array.from(table.tBodies[0].rows);
-  rows.sort((a,b) => {
-    const A = a.cells[colIndex].innerText.trim();
-    const B = b.cells[colIndex].innerText.trim();
-    const nA = parseFloat(A.replace(/,/g,'')), nB = parseFloat(B.replace(/,/g,''));
-    const aIsNum = !isNaN(nA) && A !== '';
-    const bIsNum = !isNaN(nB) && B !== '';
-    let cmp = 0;
-    if (aIsNum && bIsNum) cmp = nA - nB;
-    else cmp = A.localeCompare(B, undefined, {numeric:true, sensitivity:'base'});
-    return newDir === 'asc' ? cmp : -cmp;
-  });
-  const tbody = table.tBodies[0];
-  rows.forEach(r=>tbody.appendChild(r));
-  table.setAttribute('data-sortdir', newDir);
-}
-
-// -------------------- CSV & bulk download --------------------
-function downloadCSVForTable(table){
-  const sheetName = table.getAttribute('data-sheet-name') || table.id;
-  const csv = tableToCSV(table);
-  downloadFile(${sheetName}.csv, csv);
-}
-
-// Bulk: download all sheets individually (not zipped; each triggers download)
-function downloadAllCSV(){
-  const tables = qsAll('table[id^="table_"]');
-  if (!tables.length) { alert('No tables found on page'); return; }
-  tables.forEach(t => downloadCSVForTable(t));
-}
-
-// -------------------- SharePoint sync (TEMPLATE) --------------------
-/*
-  WARNING: The SharePoint sync below is a template and requires:
-   - A valid OAuth access token with permission to write to the target list.
-   - Correct mapping of table columns -> SharePoint list column internal names.
-   - NOTE: Do not store long-lived tokens in client-side code for production.
-*/
-
-/*
-  CONFIGURE these variables before using sync:
-  - SITE_URL: your site root, e.g., "https://contoso.sharepoint.com/sites/TeamSite"
-  - LIST_NAME: the target SharePoint list display name
-  - BEARER_TOKEN: OAuth 2.0 access token. (Obtain via Azure AD & delegated flow or ask your admin)
-  - ID_COLUMN: the table column (header) used as unique identifier (if present). If you have SharePoint List ID,
-    you can update items; otherwise POST to create new items.
-  - COLUMN_MAP: an object mapping table header -> SharePoint field internal name
-*/
-
-const SP_CONFIG = {
-  SITE_URL: "https://yourtenant.sharepoint.com/sites/YourSite", // CHANGE
-  LIST_NAME: "SalesScoreboard", // CHANGE
-  BEARER_TOKEN: "BEARER_TOKEN_GOES_HERE", // CHANGE
-  ID_COLUMN: "ID", // header name in table that maps to SharePoint ID (optional)
-  // Example: table column "Performance" maps to SharePoint field "Performance" (internal name).
-  COLUMN_MAP: {
-    "ID": "ID",
-    "Name": "Title",          // Title is default required text field in SharePoint lists
-    "Region": "Region",
-    "Performance": "Performance",
-    "Notes": "Notes"
-  }
+// ---------------- USERS ----------------
+const users = {
+    mani:{pwd:"mani",role:"admin",dept:"IT"},
+    manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
+    gothavari:{pwd:"gothavari",role:"admin",dept:"HR"},
+    naga:{pwd:"naga",role:"emp",dept:"IT"},
+    sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"},
+    preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
+    navya:{pwd:"navya",role:"emp",dept:"Accounts"}
 };
 
-async function syncTableToSharePoint(table){
-  // Basic validations
-  if (SP_CONFIG.BEARER_TOKEN === "BEARER_TOKEN_GOES_HERE") {
-    alert('Please set SP_CONFIG.BEARER_TOKEN with a valid OAuth token before syncing.');
-    return { success: false, message: 'missing token' };
-  }
-  const changedRows = Array.from(table.tBodies[0].querySelectorAll('tr.changed'));
-  if (!changedRows.length) {
-    return { success: true, message: 'no changes' };
-  }
+let currentUser = {};
 
-  const listApiBase = ${SP_CONFIG.SITE_URL}/_api/web/lists/getbytitle('${encodeURIComponent(SP_CONFIG.LIST_NAME)}');
-  const headers = {
-    "Authorization": "Bearer " + SP_CONFIG.BEARER_TOKEN,
-    "Accept": "application/json;odata=verbose",
-    "Content-Type": "application/json;odata=verbose"
-  };
+// ---------------- LOGIN ----------------
+function login(){
+    let u = username.value.trim().toLowerCase();
+    let p = password.value.trim();
 
-  // Get list item type metadata (for X-RequestDigest not needed for REST with Bearer token)
-  async function getItemType(){
-    const url = listApiBase + "/ListItemEntityTypeFullName";
-    const r = await fetch(url, {method:'GET', headers: headers});
-    const j = await r.json();
-    return j?.d?.ListItemEntityTypeFullName;
-  }
-
-  const itemType = await getItemType();
-
-  const headersRow = Array.from(table.tHead.rows[0].cells).map(c => c.innerText.trim());
-
-  // Helper: build payload mapping table headers to field internal names
-  function buildPayloadFromRow(row){
-    const cells = Array.from(row.cells).map(td => td.innerText.trim());
-    const payload = { "__metadata": { "type": itemType } };
-    headersRow.forEach((h, i) => {
-      const spField = SP_CONFIG.COLUMN_MAP[h];
-      if (!spField) return; // unmapped column
-      payload[spField] = cells[i];
-    });
-    return payload;
-  }
-
-  // For each changed row: if ID column exists and maps to SharePoint ID -> UPDATE, else CREATE (POST)
-  const results = [];
-  for (const row of changedRows){
-    try {
-      const payload = buildPayloadFromRow(row);
-      const idColIndex = headersRow.indexOf(SP_CONFIG.ID_COLUMN);
-      let responseData = null;
-
-      if (idColIndex >= 0){
-        const idVal = row.cells[idColIndex].innerText.trim();
-        const numericId = Number(idVal);
-        if (!isNaN(numericId) && numericId > 0){
-          // Update existing item
-          const updateUrl = ${listApiBase}/items(${numericId});
-          const updateHeaders = Object.assign({}, headers, {
-            "IF-MATCH": "*",
-            "X-HTTP-Method": "MERGE"
-          });
-          const r = await fetch(updateUrl, { method: 'POST', headers: updateHeaders, body: JSON.stringify(payload) });
-          if (!r.ok) throw new Error(Update failed: ${r.status});
-          responseData = { action: 'updated', id: numericId };
-          results.push(responseData);
-          continue;
-        }
-      }
-
-      // Otherwise Create item
-      const createUrl = ${listApiBase}/items;
-      const r2 = await fetch(createUrl, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
-      if (!r2.ok) throw new Error(Create failed: ${r2.status});
-      const j2 = await r2.json();
-      responseData = { action: 'created', id: j2?.d?.Id || null };
-      results.push(responseData);
-
-    } catch (err){
-      results.push({ action: 'error', message: err.message });
+    if(users[u] && users[u].pwd === p){
+        currentUser = { name:u, ...users[u] };
+        msg.innerHTML="";
+        openDashboard();
+    }else{
+        msg.innerHTML="Invalid Login";
     }
-  }
-
-  // If success, remove changed marking
-  // (Optionally: update ID column in table with created IDs — left as exercise)
-  changedRows.forEach(r => r.classList.remove('changed'));
-  updateCountForTable(table);
-
-  return { success: true, results: results };
 }
 
-// -------------------- DOM: hook buttons & wire actions --------------------
-document.getElementById('makeEditable').addEventListener('click', ()=>{
-  qsAll('table[id^="table_"]').forEach(t => makeEditableForTable(t));
-  document.getElementById('globalStatus').innerText = "All tables are now editable";
-});
+// ---------------- DASHBOARD ----------------
+function openDashboard(){
+    loginPage.style.display="none";
+    dashboard.style.display="flex";
 
-qsAll('.btn[data-download]').forEach(btn=>{
-  btn.addEventListener('click', e=>{
-    const parent = btn.closest('.sheet');
-    const table = parent.querySelector('table[id^="table_"]');
-    if (table) downloadCSVForTable(table);
-  });
-});
+    uName.innerHTML=currentUser.name;
+    uDept.innerHTML=currentUser.dept;
+    uRole.innerHTML=currentUser.role==="admin"?"Admin":"Employee";
 
-qsAll('.btn[data-sync]').forEach(btn=>{
-  btn.addEventListener('click', async e=>{
-    const parent = btn.closest('.sheet');
-    const table = parent.querySelector('table[id^="table_"]');
-    if (!table) return alert('table not found');
-    document.getElementById('globalStatus').innerText = 'Syncing...';
-    try{
-      const res = await syncTableToSharePoint(table);
-      document.getElementById('globalStatus').innerText = 'Sync complete: ' + JSON.stringify(res.results || res);
-    }catch(err){
-      document.getElementById('globalStatus').innerText = 'Sync failed: ' + err.message;
+    initDept(currentUser.dept);
+    updateUI();
+}
+
+// ---------------- INIT DEPT ----------------
+function initDept(d){
+    if(!localStorage.getItem(d)){
+        localStorage.setItem(d,JSON.stringify({
+            budget:500000,
+            history:[]
+        }));
     }
-  });
-});
+}
 
-document.getElementById('saveAllCSV').addEventListener('click', ()=>{
-  downloadAllCSV();
-});
+function getDept(){
+    return JSON.parse(localStorage.getItem(currentUser.dept));
+}
+function saveDept(d){
+    localStorage.setItem(currentUser.dept,JSON.stringify(d));
+}
 
-document.getElementById('syncAll').addEventListener('click', async ()=>{
-  const tables = qsAll('table[id^="table_"]');
-  document.getElementById('globalStatus').innerText = 'Syncing all...';
-  const overall = [];
-  for (const t of tables){
-    const r = await syncTableToSharePoint(t);
-    overall.push({ table: t.id, result: r });
-  }
-  document.getElementById('globalStatus').innerText = 'All sync done. See console for details.';
-  console.log('syncAll results', overall);
-});
+// ---------------- UPDATE UI ----------------
+function updateUI(){
+    let d=getDept();
+    let used=d.history
+        .filter(h=>h.status==="approved")
+        .reduce((s,h)=>s+h.amount,0);
 
-// Auto-make demo table editable on load
-document.addEventListener('DOMContentLoaded', ()=>{
-  qsAll('table[id^="table_"]').forEach(t => makeEditableForTable(t));
-});
+    balance.value=d.budget-used;
+
+    approvalBox.style.display =
+        currentUser.role==="admin" ? "block" : "none";
+
+    loadHistory();
+    if(currentUser.role==="admin") loadApprovals();
+}
+
+// ---------------- SEND REQUEST ----------------
+function sendRequest(){
+    let d=getDept();
+    d.history.push({
+        user:currentUser.name,
+        item:item.value,
+        amount:+amount.value,
+        status:"pending"
+    });
+    saveDept(d);
+
+    info.innerHTML="Request sent for approval";
+    item.value="";
+    amount.value="";
+    updateUI();
+}
+
+// ---------------- LOAD APPROVALS ----------------
+function loadApprovals(){
+    approvalTable.innerHTML=
+        "<tr><th>User</th><th>Item</th><th>Amount</th><th colspan='2'>Action</th></tr>";
+
+    let d=getDept();
+    d.history.forEach((h,i)=>{
+        if(h.status==="pending"){
+            approvalTable.innerHTML+=`
+            <tr>
+                <td>${h.user}</td>
+                <td>${h.item}</td>
+                <td>${h.amount}</td>
+                <td><button class="btn-green" onclick="approve(${i})">Approve</button></td>
+                <td><button class="btn-red" onclick="cancelReq(${i})">Cancel</button></td>
+            </tr>`;
+        }
+    });
+}
+
+// ---------------- APPROVE / CANCEL ----------------
+function approve(i){
+    let d=getDept();
+    d.history[i].status="approved";
+    saveDept(d);
+    updateUI();
+}
+function cancelReq(i){
+    let d=getDept();
+    d.history[i].status="cancelled";
+    saveDept(d);
+    updateUI();
+}
+
+// ---------------- HISTORY ----------------
+function loadHistory(){
+    let d=getDept();
+    historyTable.innerHTML=
+        "<tr><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
+
+    d.history.forEach(h=>{
+        if(currentUser.role==="admin" || h.user===currentUser.name){
+            historyTable.innerHTML+=`
+            <tr>
+                <td>${h.user}</td>
+                <td>${h.item}</td>
+                <td>${h.amount}</td>
+                <td class="${h.status}">${h.status}</td>
+            </tr>`;
+        }
+    });
+}
+
+// ---------------- LOGOUT ----------------
+function logout(){
+    location.reload();
+}
 </script>
 
 </body>
 </html>
+
+
 
 
 
