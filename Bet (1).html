@@ -161,6 +161,7 @@ function sendRequest(){
  const ref=db.ref("departments/"+currentUser.dept+"/history");
  ref.push({
    user:currentUser.name,
+   dept:currentUser.dept, // added dept for filtering
    item:item.value,
    amount:+amount.value,
    status:"pending"
@@ -173,7 +174,7 @@ function sendRequest(){
 function loadHistory(h){
  historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th>Status</th></tr>";
  Object.values(h||{}).forEach(x=>{
-   if(currentUser.role==="admin"||x.user===currentUser.name){
+   if(currentUser.role==="admin" || x.user===currentUser.name){
      historyTable.innerHTML+=`
      <tr>
       <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
@@ -185,6 +186,7 @@ function loadHistory(h){
 
 // APPROVAL
 function loadApprovals(h){
+ if(currentUser.role!=="admin") return;
  approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th colspan='2'>Action</th></tr>";
  Object.entries(h||{}).forEach(([k,x])=>{
    if(x.status==="pending"){
@@ -206,9 +208,6 @@ function logout(){location.reload()}
 </script>
 </body>
 </html>
-
-
-
 
 
 
