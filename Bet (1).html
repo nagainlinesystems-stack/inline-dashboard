@@ -1,3 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Department Fund Manager - Online Version</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+body{
+    margin:0; min-height:100vh; font-family:Arial;
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+}
+.card{
+    background:#fff; border-radius:16px;
+    box-shadow:0 20px 40px rgba(0,0,0,.35);
+}
+#loginPage{width:360px; margin:120px auto; padding:25px; text-align:center;}
+#dashboard{display:none; padding:40px 20px; display:flex; flex-direction:column; align-items:center;}
+input{width:100%; padding:12px; margin:8px 0; border-radius:8px; border:1px solid #aaa;}
+button{padding:10px; border:none; border-radius:8px; font-weight:bold; color:white; cursor:pointer;}
+.btn-blue{background:#007bff}
+.btn-green{background:#28a745}
+.btn-red{background:#dc3545}
+.box{width:520px;padding:22px;margin-bottom:25px;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #bbb;padding:8px;text-align:center;}
+.pending{color:orange;font-weight:bold}
+.approved{color:green;font-weight:bold}
+.cancelled{color:red;font-weight:bold}
+h2,h3{text-align:center}
+</style>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="card">
+<h2>Login</h2>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button class="btn-blue" onclick="login()">Login</button>
+<p id="msg" style="color:red;font-weight:bold"></p>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+<h2 style="color:white">Department Fund Dashboard</h2>
+<p style="color:white">
+User: <b><span id="uName"></span></b> |
+Dept: <b><span id="uDept"></span></b> |
+Role: <b><span id="uRole"></span></b>
+</p>
+<button class="btn-red" onclick="logout()">Logout</button>
+
+<!-- USAGE REQUEST -->
+<div class="card box">
+<h3>Usage Request</h3>
+<input id="balance" readonly>
+<input id="item" placeholder="Item Name">
+<input id="amount" type="number" placeholder="Amount">
+<button class="btn-blue" onclick="sendRequest()">Send Request</button>
+<p id="info"></p>
+</div>
+
+<!-- APPROVAL (ADMIN ONLY) -->
+<div id="approvalBox" class="card box">
+<h3>Pending Requests (Admin Only)</h3>
+<table id="approvalTable"></table>
+</div>
+
+<!-- HISTORY -->
+<div class="card box">
+<h3>History</h3>
+<table id="historyTable"></table>
+</div>
+
+<script>
+// -------- FIREBASE CONFIGURATION --------
+// Replace below with your Firebase config
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCVc4BI0U7DSNG9BILERws-jrWTTwMfmzM",
+  authDomain: "calculator-f915c.firebaseapp.com",
+  database:"https://console.firebase.google.com/project/calculator-f915c/database/calculator-f915c-default-rtdb/data/~2F",
+  projectId: "calculator-f915c",
+  storageBucket: "calculator-f915c.firebasestorage.app",
+  messagingSenderId: "969854776820",
+  appId: "1:969854776820:web:a4c9213f747d5164b4f5a1",
+  measurementId: "G-LT1QX6T70Y"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// -------- USERS ----------
+const users = {
+ mani:{pwd:"mani",role:"admin",dept:"IT"},
+ manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
+ gothavari:{pwd:"gothavari",role:"admin",dept:"HR"},
+ naga:{pwd:"naga",role:"emp",dept:"IT"},
+ sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"},
+ preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
+ navya:{pwd:"navya",role:"emp",dept:"Accounts"}
+};
+
+let currentUser = {};
+
+// -------- LOGIN --------
+function login(){
+    let u = username.value.trim().toLowerCase();
+    let p = password.value.trim();
+    if(users[u] && users[u].pwd===p){
+        currentUser = { name:u, ...users[u] };
+        msg.innerHTML="";
+        openDashboard();
+    } else msg.innerHTML="Invalid Login";
+}
+
+// -------- DASHBOARD --------
+function openDashboard(){
+    loginPage.style.display="none";
+    dashboard.style.display="flex";
+
+    uName.innerHTML=currentUser.name;
+    uDept.innerHTML=currentUser.dept;
+    uRole.innerHTML=currentUser.role==="admin"?"Admin":"Employee";
+
+    initDept(currentUser.dept);
+    updateUI();
+}
+
+// -------- INIT DEPT --------
+function initDept(dept){
+    db.ref('departments/'+dept).get().then(snapshot=>{
+        if(!snapshot.exists()){
+            db.ref('departments/'+dept).set({
+                budget:500000,
+                history:[]
+            });
+        }
+    });
+}
+
+// -------- UPDATE UI --------
+function updateUI(){
+    const deptRef = db.ref('departments/'+currentUser.dept);
+    deptRef.on('value', snapshot=>{
+        const data = snapshot.val();
+        const used = data.history.filter(h=>h.status==="approved").reduce((s,h)=>s+h.amount,0);
+        balance.value = data.budget - used;
+
+        approvalBox.style.display = currentUser.role==="admin"?"block":"none";
+
+        loadHistory(data.history);
+        if(currentUser.role==="admin") loadApprovals(data.history);
+    });
+}
+
+// -------- SEND REQUEST --------
+function sendRequest(){
+    const deptRef = db.ref('departments/'+currentUser.dept);
+    const itemVal = item.value.trim();
+    const amountVal = +amount.value;
+    if(!itemVal || amountVal <=0){ info.innerHTML="Enter valid data!"; return; }
+
+    deptRef.get().then(snapshot=>{
+        let data = snapshot.val();
+        data.history.push({
+            user:currentUser.name,
+            item:itemVal,
+            amount:amountVal,
+            status:"pending"
+        });
+        deptRef.set(data);
+        info.innerHTML="Request sent for approval";
+        item.value=""; amount.value="";
+    });
+}
+
+// -------- LOAD HISTORY --------
+function loadHistory(history){
+    historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
+    history.forEach(h=>{
+        if(currentUser.role==="admin" || h.user===currentUser.name){
+            historyTable.innerHTML+=
+            `<tr>
+            <td>${h.user}</td><td>${h.item}</td><td>${h.amount}</td>
+            <td class="${h.status}">${h.status}</td></tr>`;
+        }
+    });
+}
+
+// -------- LOAD APPROVALS --------
+function loadApprovals(history){
+    approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amount</th><th colspan='2'>Action</th></tr>";
+    history.forEach((h,i)=>{
+        if(h.status==="pending"){
+            approvalTable.innerHTML+=`
+            <tr>
+                <td>${h.user}</td><td>${h.item}</td><td>${h.amount}</td>
+                <td><button class="btn-green" onclick="approve(${i})">Approve</button></td>
+                <td><button class="btn-red" onclick="cancelReq(${i})">Cancel</button></td>
+            </tr>`;
+        }
+    });
+}
+
+// -------- APPROVE / CANCEL --------
+function approve(index){
+    const deptRef = db.ref('departments/'+currentUser.dept);
+    deptRef.get().then(snapshot=>{
+        let data = snapshot.val();
+        data.history[index].status="approved";
+        deptRef.set(data);
+    });
+}
+function cancelReq(index){
+    const deptRef = db.ref('departments/'+currentUser.dept);
+    deptRef.get().then(snapshot=>{
+        let data = snapshot.val();
+        data.history[index].status="cancelled";
+        deptRef.set(data);
+    });
+}
+
+// -------- LOGOUT --------
+function logout(){ location.reload(); }
+</script>
+
+</body>
+</html>
+
+
 
 
 
