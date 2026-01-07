@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Department Fund Manager</title>
+<title>Department Fund Manager (Online)</title>
 
-<!-- ✅ FIREBASE COMPAT CDN -->
+<!-- FIREBASE CDN -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -12,7 +12,10 @@ body{
   margin:0; min-height:100vh; font-family:Arial;
   background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
-.card{background:#fff;border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.35);}
+.card{
+  background:#fff; border-radius:16px;
+  box-shadow:0 20px 40px rgba(0,0,0,.35);
+}
 #loginPage{width:360px;margin:120px auto;padding:25px;text-align:center}
 #dashboard{display:none;padding:40px;display:flex;flex-direction:column;align-items:center}
 input{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #aaa}
@@ -38,7 +41,7 @@ h2,h3{text-align:center}
 <input id="username" placeholder="Username">
 <input id="password" type="password" placeholder="Password">
 <button class="btn-blue" onclick="login()">Login</button>
-<p id="msg" style="color:red"></p>
+<p id="msg" style="color:red;font-weight:bold"></p>
 </div>
 
 <!-- DASHBOARD -->
@@ -51,20 +54,23 @@ Role: <b><span id="uRole"></span></b>
 </p>
 <button class="btn-red" onclick="logout()">Logout</button>
 
+<!-- REQUEST -->
 <div class="card box">
 <h3>Usage Request</h3>
 <input id="balance" readonly>
-<input id="item" placeholder="Item Name">
+<input id="item" placeholder="Item">
 <input id="amount" type="number" placeholder="Amount">
 <button class="btn-blue" onclick="sendRequest()">Send Request</button>
 <p id="info"></p>
 </div>
 
+<!-- APPROVAL -->
 <div id="approvalBox" class="card box">
 <h3>Pending Requests (Admin Only)</h3>
 <table id="approvalTable"></table>
 </div>
 
+<!-- HISTORY -->
 <div class="card box">
 <h3>History</h3>
 <table id="historyTable"></table>
@@ -72,17 +78,21 @@ Role: <b><span id="uRole"></span></b>
 </div>
 
 <script>
-/* 🔥 FIREBASE CONFIG */
+// 🔥 FIREBASE CONFIG (CORRECT)
 const firebaseConfig = {
   apiKey: "AIzaSyCVc4BI0U7DSNG9BILERws-jrWTTwMfmzM",
   authDomain: "calculator-f915c.firebaseapp.com",
   databaseURL: "https://calculator-f915c-default-rtdb.firebaseio.com",
-  projectId: "calculator-f915c"
+  projectId: "calculator-f915c",
+  storageBucket: "calculator-f915c.firebasestorage.app",
+  messagingSenderId: "969854776820",
+  appId: "1:969854776820:web:a4c9213f747d5164b4f5a1"
 };
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* USERS */
+// USERS
 const users={
  mani:{pwd:"mani",role:"admin",dept:"IT"},
  manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
@@ -92,19 +102,20 @@ const users={
  preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
  navya:{pwd:"navya",role:"emp",dept:"Accounts"}
 };
+
 let currentUser={};
 
-/* LOGIN */
+// LOGIN
 function login(){
- let u=username.value.toLowerCase().trim();
+ let u=username.value.trim().toLowerCase();
  let p=password.value.trim();
  if(users[u] && users[u].pwd===p){
    currentUser={name:u,...users[u]};
+   msg.innerHTML="";
    openDashboard();
- } else msg.innerHTML="Invalid Login";
+ }else msg.innerHTML="Invalid Login";
 }
 
-/* DASHBOARD */
 function openDashboard(){
  loginPage.style.display="none";
  dashboard.style.display="flex";
@@ -115,88 +126,87 @@ function openDashboard(){
  listenRealtime();
 }
 
-/* INIT DEPT */
+// INIT DEPT
 function initDept(){
  const ref=db.ref("departments/"+currentUser.dept);
  ref.get().then(s=>{
    if(!s.exists()){
-     ref.set({budget:500000,history:{}});
+     ref.set({budget:500000,history:[]});
    }
  });
 }
 
-/* REALTIME LISTENER */
+// REALTIME LISTENER
 function listenRealtime(){
  const ref=db.ref("departments/"+currentUser.dept);
  ref.on("value",snap=>{
    const d=snap.val();
    if(!d) return;
 
-   const list=Object.entries(d.history||{});
-   const used=list
-     .filter(([k,x])=>x.status==="approved")
-     .reduce((s,[k,x])=>s+x.amount,0);
-
+   let used=d.history.filter(h=>h.status==="approved")
+     .reduce((s,h)=>s+h.amount,0);
    balance.value=d.budget-used;
-   approvalBox.style.display=currentUser.role==="admin"?"block":"none";
 
-   render(list);
+   approvalBox.style.display=
+     currentUser.role==="admin"?"block":"none";
+
+   loadHistory(d.history);
+   if(currentUser.role==="admin") loadApprovals(d.history);
  });
 }
 
-/* SEND REQUEST */
+// SEND REQUEST
 function sendRequest(){
- const itemVal=item.value.trim();
- const amt=+amount.value;
- if(!itemVal||amt<=0){info.innerHTML="Invalid data";return;}
-
- db.ref("departments/"+currentUser.dept+"/history").push({
+ if(!item.value || amount.value<=0) return;
+ const ref=db.ref("departments/"+currentUser.dept+"/history");
+ ref.push({
    user:currentUser.name,
-   item:itemVal,
-   amount:amt,
+   item:item.value,
+   amount:+amount.value,
    status:"pending"
  });
- info.innerHTML="Request sent for approval";
- item.value=amount.value="";
+ item.value=""; amount.value="";
+ info.innerHTML="Request sent";
 }
 
-/* RENDER TABLES */
-function render(list){
+// HISTORY
+function loadHistory(h){
  historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th>Status</th></tr>";
- approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th colspan=2>Action</th></tr>";
-
- list.forEach(([key,x])=>{
+ Object.values(h||{}).forEach(x=>{
    if(currentUser.role==="admin"||x.user===currentUser.name){
      historyTable.innerHTML+=`
      <tr>
-       <td>${x.user}</td><td>${x.item}</td>
-       <td>${x.amount}</td>
-       <td class="${x.status}">${x.status}</td>
-     </tr>`;
-   }
-
-   if(currentUser.role==="admin" && x.status==="pending"){
-     approvalTable.innerHTML+=`
-     <tr>
-       <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
-       <td><button class="btn-green" onclick="setStatus('${key}','approved')">Approve</button></td>
-       <td><button class="btn-red" onclick="setStatus('${key}','cancelled')">Cancel</button></td>
+      <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
+      <td class="${x.status}">${x.status}</td>
      </tr>`;
    }
  });
 }
 
-/* APPROVE / CANCEL */
-function setStatus(key,status){
- db.ref("departments/"+currentUser.dept+"/history/"+key)
-   .update({status});
+// APPROVAL
+function loadApprovals(h){
+ approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th colspan='2'>Action</th></tr>";
+ Object.entries(h||{}).forEach(([k,x])=>{
+   if(x.status==="pending"){
+     approvalTable.innerHTML+=`
+     <tr>
+      <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
+      <td><button class="btn-green" onclick="updateStatus('${k}','approved')">Approve</button></td>
+      <td><button class="btn-red" onclick="updateStatus('${k}','cancelled')">Cancel</button></td>
+     </tr>`;
+   }
+ });
 }
 
-/* LOGOUT */
-function logout(){location.reload();}
+function updateStatus(key,status){
+ db.ref(`departments/${currentUser.dept}/history/${key}/status`).set(status);
+}
+
+function logout(){location.reload()}
 </script>
 </body>
 </html>
+
 
 
 
