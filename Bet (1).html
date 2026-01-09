@@ -81,20 +81,22 @@ Role: <b><span id="uRole"></span></b>
 </div>
 </div>
 
-<script>
-// 🔥 FIREBASE CONFIG (CORRECT)
-const firebaseConfig = {
-  apiKey: "AIzaSyCVc4BI0U7DSNG9BILERws-jrWTTwMfmzM",
-  authDomain: "calculator-f915c.firebaseapp.com",
-  databaseURL: "https://calculator-f915c-default-rtdb.firebaseio.com",
-  projectId: "calculator-f915c",
-  storageBucket: "calculator-f915c.firebasestorage.app",
-  messagingSenderId: "969854776820",
-  appId: "1:969854776820:web:a4c9213f747d5164b4f5a1"
-};
+<head>
+<title>Department Fund Manager (Online)</title>
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+<!-- SUPABASE CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<script>
+  const supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co'
+  const supabaseKey = 'YOUR_PUBLIC_ANON_KEY'
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+</script>
+
+<style>
+...
+</style>
+</head>
+
 
 // USERS
 const users={
@@ -212,6 +214,7 @@ function logout(){location.reload()}
 </script>
 </body>
 </html>
+
 
 
 
