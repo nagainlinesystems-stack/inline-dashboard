@@ -113,6 +113,54 @@ Role: <b><span id="uRole"></span></b>
   </style>
 </head>
 
+  async function sendRequest() {
+  if(!item.value || amount.value <= 0) return
+
+  const { data, error } = await supabase
+    .from('requests')
+    .insert([{
+      user: currentUser.name,
+      dept: currentUser.dept,
+      item: item.value,
+      amount: +amount.value,
+      status: 'pending'
+    }])
+  if(error) console.log(error)
+  else info.innerHTML = "Request sent"
+  
+  item.value = ''
+  amount.value = ''
+}
+async function loadHistory() {
+  const { data, error } = await supabase
+    .from('requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if(error) console.log(error)
+  else {
+    historyTable.innerHTML = "<tr><th>User</th><th>Item</th><th>Amt</th><th>Status</th></tr>"
+    data.forEach(x => {
+      if(currentUser.role==='admin' || x.user===currentUser.name){
+        historyTable.innerHTML += `
+        <tr>
+          <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
+          <td class="${x.status}">${x.status}</td>
+        </tr>`
+      }
+    })
+  }
+}
+
+    supabase
+  .channel('public:requests')
+  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' },
+      payload => {
+        console.log('New request:', payload.new)
+        loadHistory() // auto refresh
+      })
+  .subscribe()
+
+
 // USERS
 const users={
  mani:{pwd:"mani",role:"admin",dept:"IT"},
@@ -229,6 +277,7 @@ function logout(){location.reload()}
 </script>
 </body>
 </html>
+
 
 
 
