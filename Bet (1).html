@@ -97,6 +97,21 @@ Role: <b><span id="uRole"></span></b>
 </style>
 </head>
 
+<head>
+  <title>Department Fund Manager (Online)</title>
+
+  <!-- SUPABASE CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <script>
+    const supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co'
+    const supabaseKey = 'YOUR_PUBLIC_ANON_KEY'
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+  </script>
+
+  <style>
+    /* your existing CSS */
+  </style>
+</head>
 
 // USERS
 const users={
@@ -214,6 +229,7 @@ function logout(){location.reload()}
 </script>
 </body>
 </html>
+
 
 
 
