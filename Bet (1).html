@@ -1,15 +1,19 @@
-git add .
-git commit -m "Initial commit"
-git push origin main
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <title>Department Fund Manager (Online)</title>
 
-<!-- FIREBASE CDN -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<!-- SUPABASE CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+
+<script>
+/* 🔴 REPLACE THESE TWO */
+const SUPABASE_URL = 'https://hdhpiutigravrfxdxcxq.supabase.co'
+const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_PUBLIC_KEY_HERE'
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+</script>
 
 <style>
 body{
@@ -61,17 +65,10 @@ Role: <b><span id="uRole"></span></b>
 <!-- REQUEST -->
 <div class="card box">
 <h3>Usage Request</h3>
-<input id="balance" readonly>
 <input id="item" placeholder="Item">
 <input id="amount" type="number" placeholder="Amount">
 <button class="btn-blue" onclick="sendRequest()">Send Request</button>
 <p id="info"></p>
-</div>
-
-<!-- APPROVAL -->
-<div id="approvalBox" class="card box">
-<h3>Pending Requests (Admin Only)</h3>
-<table id="approvalTable"></table>
 </div>
 
 <!-- HISTORY -->
@@ -81,200 +78,108 @@ Role: <b><span id="uRole"></span></b>
 </div>
 </div>
 
-<head>
-<title>Department Fund Manager (Online)</title>
-
-<!-- SUPABASE CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 <script>
-  const supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co'
-  const supabaseKey = 'YOUR_PUBLIC_ANON_KEY'
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey)
-</script>
+/* USERS (STATIC LOGIN) */
+const users = {
+  mani:{pwd:"mani",role:"admin",dept:"IT"},
+  manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
+  gothavari:{pwd:"gothavari",role:"admin",dept:"HR"},
+  naga:{pwd:"naga",role:"emp",dept:"IT"},
+  sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"},
+  preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
+  navya:{pwd:"navya",role:"emp",dept:"Accounts"}
+}
 
-<style>
-...
-</style>
-</head>
+let currentUser = {}
 
-<head>
-  <title>Department Fund Manager (Online)</title>
+/* LOGIN */
+function login(){
+  const u = username.value.trim().toLowerCase()
+  const p = password.value.trim()
+  if(users[u] && users[u].pwd === p){
+    currentUser = {name:u, ...users[u]}
+    loginPage.style.display="none"
+    dashboard.style.display="flex"
+    uName.innerText = currentUser.name
+    uDept.innerText = currentUser.dept
+    uRole.innerText = currentUser.role
+    loadHistory()
+    listenRealtime()
+  } else {
+    msg.innerText = "Invalid Login"
+  }
+}
 
-  <!-- SUPABASE CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-  <script>
-    const supabaseUrl = 'https://YOUR_PROJECT_REF.supabase.co'
-    const supabaseKey = 'YOUR_PUBLIC_ANON_KEY'
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey)
-  </script>
-
-  <style>
-    /* your existing CSS */
-  </style>
-</head>
-
-  async function sendRequest() {
+/* SEND REQUEST */
+async function sendRequest(){
   if(!item.value || amount.value <= 0) return
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('requests')
     .insert([{
       user: currentUser.name,
       dept: currentUser.dept,
       item: item.value,
-      amount: +amount.value,
+      amount: Number(amount.value),
       status: 'pending'
     }])
-  if(error) console.log(error)
-  else info.innerHTML = "Request sent"
-  
-  item.value = ''
-  amount.value = ''
-}
-async function loadHistory() {
-  const { data, error } = await supabase
-    .from('requests')
-    .select('*')
-    .order('created_at', { ascending: false })
-  if(error) console.log(error)
-  else {
-    historyTable.innerHTML = "<tr><th>User</th><th>Item</th><th>Amt</th><th>Status</th></tr>"
-    data.forEach(x => {
-      if(currentUser.role==='admin' || x.user===currentUser.name){
-        historyTable.innerHTML += `
-        <tr>
-          <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
-          <td class="${x.status}">${x.status}</td>
-        </tr>`
-      }
-    })
+
+  if(error){
+    console.error(error)
+    info.innerText = "Error sending request"
+  } else {
+    info.innerText = "Request sent"
+    item.value=""
+    amount.value=""
   }
 }
 
-    supabase
-  .channel('public:requests')
-  .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'requests' },
-      payload => {
-        console.log('New request:', payload.new)
-        loadHistory() // auto refresh
-      })
-  .subscribe()
+/* LOAD HISTORY */
+async function loadHistory(){
+  const { data, error } = await supabase
+    .from('requests')
+    .select('*')
+    .order('created_at', { ascending:false })
 
+  if(error){
+    console.error(error)
+    return
+  }
 
-// USERS
-const users={
- mani:{pwd:"mani",role:"admin",dept:"IT"},
- manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
- gothavari:{pwd:"gothavari",role:"admin",dept:"HR"},
- naga:{pwd:"naga",role:"emp",dept:"IT"},
- sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"},
- preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
- navya:{pwd:"navya",role:"emp",dept:"Accounts"}
-};
+  historyTable.innerHTML =
+    "<tr><th>User</th><th>Dept</th><th>Item</th><th>Amount</th><th>Status</th></tr>"
 
-let currentUser={};
-
-// LOGIN
-function login(){
- let u=username.value.trim().toLowerCase();
- let p=password.value.trim();
- if(users[u] && users[u].pwd===p){
-   currentUser={name:u,...users[u]};
-   msg.innerHTML="";
-   openDashboard();
- }else msg.innerHTML="Invalid Login";
+  data.forEach(r=>{
+    if(currentUser.role==='admin' || r.user===currentUser.name){
+      historyTable.innerHTML += `
+        <tr>
+          <td>${r.user}</td>
+          <td>${r.dept}</td>
+          <td>${r.item}</td>
+          <td>${r.amount}</td>
+          <td class="${r.status}">${r.status}</td>
+        </tr>`
+    }
+  })
 }
 
-function openDashboard(){
- loginPage.style.display="none";
- dashboard.style.display="flex";
- uName.innerHTML=currentUser.name;
- uDept.innerHTML=currentUser.dept;
- uRole.innerHTML=currentUser.role==="admin"?"Admin":"Employee";
- initDept();
- listenRealtime();
-}
-
-// INIT DEPT
-function initDept(){
- const ref=db.ref("departments/"+currentUser.dept);
- ref.get().then(s=>{
-   if(!s.exists()){
-     ref.set({budget:500000,history:[]});
-   }
- });
-}
-
-// REALTIME LISTENER
+/* REALTIME LISTENER */
 function listenRealtime(){
- const ref=db.ref("departments/"+currentUser.dept);
- ref.on("value",snap=>{
-   const d=snap.val();
-   if(!d) return;
-
-   let used=d.history.filter(h=>h.status==="approved")
-     .reduce((s,h)=>s+h.amount,0);
-   balance.value=d.budget-used;
-
-   approvalBox.style.display=
-     currentUser.role==="admin"?"block":"none";
-
-   loadHistory(d.history);
-   if(currentUser.role==="admin") loadApprovals(d.history);
- });
+  supabase
+    .channel('requests-realtime')
+    .on(
+      'postgres_changes',
+      { event:'*', schema:'public', table:'requests' },
+      () => loadHistory()
+    )
+    .subscribe()
 }
 
-// SEND REQUEST
-function sendRequest(){
- if(!item.value || amount.value<=0) return;
- const ref=db.ref("departments/"+currentUser.dept+"/history");
- ref.push({
-   user:currentUser.name,
-   dept:currentUser.dept, // added dept for filtering
-   item:item.value,
-   amount:+amount.value,
-   status:"pending"
- });
- item.value=""; amount.value="";
- info.innerHTML="Request sent";
+function logout(){
+  location.reload()
 }
-
-// HISTORY
-function loadHistory(h){
- historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th>Status</th></tr>";
- Object.values(h||{}).forEach(x=>{
-   if(currentUser.role==="admin" || x.user===currentUser.name){
-     historyTable.innerHTML+=`
-     <tr>
-      <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
-      <td class="${x.status}">${x.status}</td>
-     </tr>`;
-   }
- });
-}
-
-// APPROVAL
-function loadApprovals(h){
- if(currentUser.role!=="admin") return;
- approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amt</th><th colspan='2'>Action</th></tr>";
- Object.entries(h||{}).forEach(([k,x])=>{
-   if(x.status==="pending"){
-     approvalTable.innerHTML+=`
-     <tr>
-      <td>${x.user}</td><td>${x.item}</td><td>${x.amount}</td>
-      <td><button class="btn-green" onclick="updateStatus('${k}','approved')">Approve</button></td>
-      <td><button class="btn-red" onclick="updateStatus('${k}','cancelled')">Cancel</button></td>
-     </tr>`;
-   }
- });
-}
-
-function updateStatus(key,status){
- db.ref(`departments/${currentUser.dept}/history/${key}/status`).set(status);
-}
-
-function logout(){location.reload()}
 </script>
+
 </body>
 </html>
 
