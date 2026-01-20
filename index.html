@@ -1,274 +1,260 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Department Fund Manager</title>
+<title>Department Fund Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{
-    margin:0;
-    min-height:100vh;
-    font-family:Arial;
-    background:
-      radial-gradient(circle at 15% 20%, #667eea 0%, transparent 45%),
-      radial-gradient(circle at 85% 80%, #43cea2 0%, transparent 45%),
-      linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+ margin:0;font-family:Arial;min-height:100vh;
+ background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 .card{
-    background:#fff;
-    border-radius:16px;
-    box-shadow:0 20px 40px rgba(0,0,0,.35);
+ background:#fff;border-radius:16px;
+ box-shadow:0 20px 40px rgba(0,0,0,.35);
 }
-#loginPage{
-    width:360px;
-    margin:120px auto;
-    padding:25px;
-    text-align:center;
-}
-#dashboard{
-    display:none;
-    padding:40px 20px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-}
-input{
-    width:100%;
-    padding:12px;
-    margin:8px 0;
-    border-radius:8px;
-    border:1px solid #aaa;
-}
-button{
-    padding:10px;
-    border:none;
-    border-radius:8px;
-    font-weight:bold;
-    color:white;
-    cursor:pointer;
-}
+#loginPage{width:360px;margin:120px auto;padding:25px;text-align:center}
+#userPage,#dashboard{display:none;padding:30px}
+
+input{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #aaa}
+button{padding:10px 16px;border:none;border-radius:8px;font-weight:bold;color:#fff;cursor:pointer}
 .btn-blue{background:#007bff}
 .btn-green{background:#28a745}
 .btn-red{background:#dc3545}
-.box{
-    width:520px;
-    padding:22px;
-    margin-bottom:25px;
-}
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-th,td{
-    border:1px solid #bbb;
-    padding:8px;
-    text-align:center;
-}
+
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #bbb;padding:8px;text-align:center}
+
 .pending{color:orange;font-weight:bold}
 .approved{color:green;font-weight:bold}
 .cancelled{color:red;font-weight:bold}
-h2,h3{text-align:center}
+
+.summary{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+ gap:20px;margin-bottom:25px
+}
+.stat{text-align:center;padding:20px;border-radius:12px;background:#f8f9fa}
+.stat h1{margin:0;color:#007bff}
+
+.chartBox{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:25px;
+ margin-bottom:30px;
+}
 </style>
 </head>
 
 <body>
 
-<!-- LOGIN PAGE -->
+<!-- LOGIN -->
 <div id="loginPage" class="card">
-    <h2>Login</h2>
-    <input id="username" placeholder="Username">
-    <input id="password" type="password" placeholder="Password">
-    <button class="btn-blue" onclick="login()">Login</button>
-    <p id="msg" style="color:red;font-weight:bold"></p>
+<h2>Login</h2>
+<input id="username" placeholder="Username">
+<input id="password" type="password" placeholder="Password">
+<button class="btn-blue" onclick="login()">Login</button>
+<p id="msg" style="color:red"></p>
 </div>
 
-<!-- DASHBOARD -->
+<!-- USER / ADMIN -->
+<div id="userPage">
+<h2 style="color:white">User / Admin Panel</h2>
+<p style="color:white">
+User: <b id="uName"></b> |
+Dept: <b id="uDept"></b> |
+Role: <b id="uRole"></b>
+</p>
+<button class="btn-red" onclick="logout()">Logout</button>
+
+<div class="card" style="padding:20px;margin-top:20px">
+<h3>Usage Request</h3>
+<input id="item" placeholder="Item">
+<input id="amount" type="number" placeholder="Amount">
+<button class="btn-blue" onclick="sendRequest()">Send Request</button>
+<p id="info"></p>
+</div>
+
+<div id="approvalBox" class="card" style="padding:20px;margin-top:20px;display:none">
+<h3>Pending Requests (Admin)</h3>
+<table id="approvalTable"></table>
+</div>
+
+<div class="card" style="padding:20px;margin-top:20px">
+<h3>History</h3>
+<table id="historyTable"></table>
+</div>
+</div>
+
+<!-- SUPER DASHBOARD -->
 <div id="dashboard">
-    <h2 style="color:white">Department Fund Dashboard</h2>
-    <p style="color:white">
-        User: <b><span id="uName"></span></b> |
-        Dept: <b><span id="uDept"></span></b> |
-        Role: <b><span id="uRole"></span></b>
-    </p>
-    <button class="btn-red" onclick="logout()">Logout</button>
+<h2 style="color:white">🏢 Common Dashboard</h2>
+<button class="btn-red" onclick="logout()">Logout</button>
 
-    <!-- USAGE REQUEST -->
-    <div class="card box">
-        <h3>Usage Request</h3>
-        <input id="balance" readonly>
-        <input id="item" placeholder="Item Name">
-        <input id="amount" type="number" placeholder="Amount">
-        <button class="btn-blue" onclick="sendRequest()">Send Request</button>
-        <p id="info"></p>
-    </div>
+<div class="summary">
+ <div class="card stat"><h3>Total Budget</h3><h1 id="totalBudget">0</h1></div>
+ <div class="card stat"><h3>Total Approved</h3><h1 id="totalUsed">0</h1></div>
+ <div class="card stat"><h3>Pending Requests</h3><h1 id="pendingCount">0</h1></div>
+</div>
 
-    <!-- APPROVAL (ADMIN ONLY) -->
-    <div id="approvalBox" class="card box">
-        <h3>Pending Requests (Admin Only)</h3>
-        <table id="approvalTable"></table>
-    </div>
+<div class="chartBox">
+ <div class="card" style="padding:20px">
+  <h3 style="text-align:center">Approved Amount by Department</h3>
+  <canvas id="approvedChart"></canvas>
+ </div>
+ <div class="card" style="padding:20px">
+  <h3 style="text-align:center">Pending Requests Distribution</h3>
+  <canvas id="pendingChart"></canvas>
+ </div>
+</div>
 
-    <!-- HISTORY -->
-    <div class="card box">
-        <h3>History</h3>
-        <table id="historyTable"></table>
-    </div>
+<div class="card" style="padding:20px;margin-bottom:25px">
+<h3>Department Summary</h3>
+<table id="deptTable"></table>
+</div>
+
+<!-- 🔥 DASHBOARD HISTORY -->
+<div class="card" style="padding:20px">
+<h3>Overall History (All Departments)</h3>
+<table id="dashHistory"></table>
+</div>
 </div>
 
 <script>
-// ---------------- USERS ----------------
-const users = {
-    mani:{pwd:"mani",role:"admin",dept:"IT"},
-    manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
-    gothavari:{pwd:"gothavari",role:"admin",dept:"HR"},
-    naga:{pwd:"naga",role:"emp",dept:"IT"},
-    sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"},
-    preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
-    navya:{pwd:"navya",role:"emp",dept:"Accounts"}
+const users={
+ dash:{pwd:"dash",role:"super"},
+ mani:{pwd:"mani",role:"admin",dept:"IT"},
+ manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
+ naga:{pwd:"naga",role:"emp",dept:"IT"},
+ sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"}
 };
+const departments=["IT","Sales","HR","Accounts"];
+let currentUser={},approvedChart,pendingChart;
 
-let currentUser = {};
-
-// ---------------- LOGIN ----------------
 function login(){
-    let u = username.value.trim().toLowerCase();
-    let p = password.value.trim();
+ let u=username.value.toLowerCase();
+ if(users[u] && users[u].pwd===password.value){
+  currentUser={name:u,...users[u]};
+  loginPage.style.display="none";
 
-    if(users[u] && users[u].pwd === p){
-        currentUser = { name:u, ...users[u] };
-        msg.innerHTML="";
-        openDashboard();
-    }else{
-        msg.innerHTML="Invalid Login";
-    }
+  if(currentUser.role==="super"){
+   dashboard.style.display="block";
+   initAll(); loadDashboard(); loadDashHistory();
+  }else{
+   userPage.style.display="block";
+   uName.innerHTML=currentUser.name;
+   uDept.innerHTML=currentUser.dept;
+   uRole.innerHTML=currentUser.role;
+   initDept(currentUser.dept);
+   loadHistory();
+   if(currentUser.role==="admin"){approvalBox.style.display="block";loadApprovals();}
+  }
+ }else msg.innerHTML="Invalid Login";
 }
 
-// ---------------- DASHBOARD ----------------
-function openDashboard(){
-    loginPage.style.display="none";
-    dashboard.style.display="flex";
-
-    uName.innerHTML=currentUser.name;
-    uDept.innerHTML=currentUser.dept;
-    uRole.innerHTML=currentUser.role==="admin"?"Admin":"Employee";
-
-    initDept(currentUser.dept);
-    updateUI();
-}
-
-// ---------------- INIT DEPT ----------------
 function initDept(d){
-    if(!localStorage.getItem(d)){
-        localStorage.setItem(d,JSON.stringify({
-            budget:500000,
-            history:[]
-        }));
-    }
+ let data=localStorage.getItem(d);
+ if(!data) localStorage.setItem(d,JSON.stringify({budget:500000,history:[]}));
 }
+function initAll(){departments.forEach(initDept);}
 
-function getDept(){
-    return JSON.parse(localStorage.getItem(currentUser.dept));
-}
-function saveDept(d){
-    localStorage.setItem(currentUser.dept,JSON.stringify(d));
-}
-
-// ---------------- UPDATE UI ----------------
-function updateUI(){
-    let d=getDept();
-    let used=d.history
-        .filter(h=>h.status==="approved")
-        .reduce((s,h)=>s+h.amount,0);
-
-    balance.value=d.budget-used;
-
-    approvalBox.style.display =
-        currentUser.role==="admin" ? "block" : "none";
-
-    loadHistory();
-    if(currentUser.role==="admin") loadApprovals();
-}
-
-// ---------------- SEND REQUEST ----------------
 function sendRequest(){
-    let d=getDept();
-    d.history.push({
-        user:currentUser.name,
-        item:item.value,
-        amount:+amount.value,
-        status:"pending"
-    });
-    saveDept(d);
-
-    info.innerHTML="Request sent for approval";
-    item.value="";
-    amount.value="";
-    updateUI();
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ d.history.push({user:currentUser.name,item:item.value,amount:+amount.value,status:"pending"});
+ localStorage.setItem(currentUser.dept,JSON.stringify(d));
+ info.innerHTML="Request sent";
+ item.value=amount.value="";
+ loadHistory();
 }
 
-// ---------------- LOAD APPROVALS ----------------
 function loadApprovals(){
-    approvalTable.innerHTML=
-        "<tr><th>User</th><th>Item</th><th>Amount</th><th colspan='2'>Action</th></tr>";
-
-    let d=getDept();
-    d.history.forEach((h,i)=>{
-        if(h.status==="pending"){
-            approvalTable.innerHTML+=`
-            <tr>
-                <td>${h.user}</td>
-                <td>${h.item}</td>
-                <td>${h.amount}</td>
-                <td><button class="btn-green" onclick="approve(${i})">Approve</button></td>
-                <td><button class="btn-red" onclick="cancelReq(${i})">Cancel</button></td>
-            </tr>`;
-        }
-    });
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amount</th><th>Action</th></tr>";
+ d.history.forEach((h,i)=>{
+  if(h.status==="pending"){
+   approvalTable.innerHTML+=`
+   <tr>
+    <td>${h.user}</td><td>${h.item}</td><td>${h.amount}</td>
+    <td>
+     <button class="btn-green" onclick="updateReq(${i},'approved')">Approve</button>
+     <button class="btn-red" onclick="updateReq(${i},'cancelled')">Deny</button>
+    </td>
+   </tr>`;
+  }
+ });
+}
+function updateReq(i,s){
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ d.history[i].status=s;
+ localStorage.setItem(currentUser.dept,JSON.stringify(d));
+ loadApprovals();loadHistory();
 }
 
-// ---------------- APPROVE / CANCEL ----------------
-function approve(i){
-    let d=getDept();
-    d.history[i].status="approved";
-    saveDept(d);
-    updateUI();
-}
-function cancelReq(i){
-    let d=getDept();
-    d.history[i].status="cancelled";
-    saveDept(d);
-    updateUI();
-}
-
-// ---------------- HISTORY ----------------
 function loadHistory(){
-    let d=getDept();
-    historyTable.innerHTML=
-        "<tr><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
-
-    d.history.forEach(h=>{
-        if(currentUser.role==="admin" || h.user===currentUser.name){
-            historyTable.innerHTML+=`
-            <tr>
-                <td>${h.user}</td>
-                <td>${h.item}</td>
-                <td>${h.amount}</td>
-                <td class="${h.status}">${h.status}</td>
-            </tr>`;
-        }
-    });
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
+ d.history.forEach(h=>{
+  if(currentUser.role==="admin" || h.user===currentUser.name){
+   historyTable.innerHTML+=`
+   <tr>
+    <td>${h.user}</td><td>${h.item}</td><td>${h.amount}</td>
+    <td class="${h.status}">${h.status}</td>
+   </tr>`;
+  }
+ });
 }
 
-// ---------------- LOGOUT ----------------
-function logout(){
-    location.reload();
+function loadDashboard(){
+ let totalB=0,totalU=0,pending=0;
+ let aData=[],pData=[];
+ deptTable.innerHTML="<tr><th>Dept</th><th>Budget</th><th>Approved</th><th>Pending</th></tr>";
+
+ departments.forEach(dep=>{
+  let d=JSON.parse(localStorage.getItem(dep));
+  let a=0,p=0;
+  d.history.forEach(h=>{
+   if(h.status==="approved") a+=h.amount;
+   if(h.status==="pending") p++;
+  });
+  totalB+=d.budget; totalU+=a; pending+=p;
+  aData.push(a); pData.push(p);
+  deptTable.innerHTML+=`<tr><td>${dep}</td><td>${d.budget}</td><td>${a}</td><td>${p}</td></tr>`;
+ });
+
+ totalBudget.innerHTML=totalB;
+ totalUsed.innerHTML=totalU;
+ pendingCount.innerHTML=pending;
+ drawCharts(aData,pData);
 }
+
+function loadDashHistory(){
+ dashHistory.innerHTML="<tr><th>Dept</th><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
+ departments.forEach(dep=>{
+  let d=JSON.parse(localStorage.getItem(dep));
+  d.history.forEach(h=>{
+   dashHistory.innerHTML+=`
+   <tr>
+    <td>${dep}</td><td>${h.user}</td><td>${h.item}</td>
+    <td>${h.amount}</td><td class="${h.status}">${h.status}</td>
+   </tr>`;
+  });
+ });
+}
+
+function drawCharts(a,p){
+ if(approvedChart) approvedChart.destroy();
+ if(pendingChart) pendingChart.destroy();
+ approvedChart=new Chart(document.getElementById("approvedChart"),{
+  type:"bar",
+  data:{labels:departments,datasets:[{label:"Approved",data:a,backgroundColor:"#007bff"}]}
+ });
+ pendingChart=new Chart(document.getElementById("pendingChart"),{
+  type:"pie",
+  data:{labels:departments,datasets:[{data:p}]}
+ });
+}
+
+function logout(){location.reload();}
 </script>
-
 </body>
 </html>
-
-
-
-
-
-
