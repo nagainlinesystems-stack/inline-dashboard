@@ -1,43 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Department Fund Manager (Online)</title>
-
-<!-- SUPABASE CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-
-<script>
-/* 🔴 REPLACE THESE TWO */
-const SUPABASE_URL = 'https://hdhpiutigravrfxdxcxq.supabase.co'
-const SUPABASE_ANON_KEY = 'PASTE_YOUR_ANON_PUBLIC_KEY_HERE'
-
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-</script>
+<title>Department Fund Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{
-  margin:0; min-height:100vh; font-family:Arial;
-  background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+ margin:0;font-family:Arial;min-height:100vh;
+ background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 }
 .card{
-  background:#fff; border-radius:16px;
-  box-shadow:0 20px 40px rgba(0,0,0,.35);
+ background:#fff;border-radius:16px;
+ box-shadow:0 20px 40px rgba(0,0,0,.35);
 }
 #loginPage{width:360px;margin:120px auto;padding:25px;text-align:center}
-#dashboard{display:none;padding:40px;display:flex;flex-direction:column;align-items:center}
+#userPage,#dashboard{display:none;padding:30px}
+
 input{width:100%;padding:12px;margin:8px 0;border-radius:8px;border:1px solid #aaa}
-button{padding:10px;border:none;border-radius:8px;font-weight:bold;color:white;cursor:pointer}
+button{padding:10px 16px;border:none;border-radius:8px;font-weight:bold;color:#fff;cursor:pointer}
 .btn-blue{background:#007bff}
 .btn-green{background:#28a745}
 .btn-red{background:#dc3545}
-.box{width:520px;padding:22px;margin-bottom:25px}
-table{width:100%;border-collapse:collapse}
+
+table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border:1px solid #bbb;padding:8px;text-align:center}
+
 .pending{color:orange;font-weight:bold}
 .approved{color:green;font-weight:bold}
 .cancelled{color:red;font-weight:bold}
-h2,h3{text-align:center}
+
+.summary{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+ gap:20px;margin-bottom:25px
+}
+.stat{text-align:center;padding:20px;border-radius:12px;background:#f8f9fa}
+.stat h1{margin:0;color:#007bff}
+
+.chartBox{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:25px;
+ margin-bottom:30px;
+}
 </style>
 </head>
 
@@ -49,21 +54,20 @@ h2,h3{text-align:center}
 <input id="username" placeholder="Username">
 <input id="password" type="password" placeholder="Password">
 <button class="btn-blue" onclick="login()">Login</button>
-<p id="msg" style="color:red;font-weight:bold"></p>
+<p id="msg" style="color:red"></p>
 </div>
 
-<!-- DASHBOARD -->
-<div id="dashboard">
-<h2 style="color:white">Department Fund Dashboard</h2>
+<!-- USER / ADMIN -->
+<div id="userPage">
+<h2 style="color:white">User / Admin Panel</h2>
 <p style="color:white">
-User: <b><span id="uName"></span></b> |
-Dept: <b><span id="uDept"></span></b> |
-Role: <b><span id="uRole"></span></b>
+User: <b id="uName"></b> |
+Dept: <b id="uDept"></b> |
+Role: <b id="uRole"></b>
 </p>
 <button class="btn-red" onclick="logout()">Logout</button>
 
-<!-- REQUEST -->
-<div class="card box">
+<div class="card" style="padding:20px;margin-top:20px">
 <h3>Usage Request</h3>
 <input id="item" placeholder="Item">
 <input id="amount" type="number" placeholder="Amount">
@@ -71,126 +75,186 @@ Role: <b><span id="uRole"></span></b>
 <p id="info"></p>
 </div>
 
-<!-- HISTORY -->
-<div class="card box">
+<div id="approvalBox" class="card" style="padding:20px;margin-top:20px;display:none">
+<h3>Pending Requests (Admin)</h3>
+<table id="approvalTable"></table>
+</div>
+
+<div class="card" style="padding:20px;margin-top:20px">
 <h3>History</h3>
 <table id="historyTable"></table>
 </div>
 </div>
 
+<!-- SUPER DASHBOARD -->
+<div id="dashboard">
+<h2 style="color:white">🏢 Common Dashboard</h2>
+<button class="btn-red" onclick="logout()">Logout</button>
+
+<div class="summary">
+ <div class="card stat"><h3>Total Budget</h3><h1 id="totalBudget">0</h1></div>
+ <div class="card stat"><h3>Total Approved</h3><h1 id="totalUsed">0</h1></div>
+ <div class="card stat"><h3>Pending Requests</h3><h1 id="pendingCount">0</h1></div>
+</div>
+
+<div class="chartBox">
+ <div class="card" style="padding:20px">
+  <h3 style="text-align:center">Approved Amount by Department</h3>
+  <canvas id="approvedChart"></canvas>
+ </div>
+ <div class="card" style="padding:20px">
+  <h3 style="text-align:center">Pending Requests Distribution</h3>
+  <canvas id="pendingChart"></canvas>
+ </div>
+</div>
+
+<div class="card" style="padding:20px;margin-bottom:25px">
+<h3>Department Summary</h3>
+<table id="deptTable"></table>
+</div>
+
+<!-- 🔥 DASHBOARD HISTORY -->
+<div class="card" style="padding:20px">
+<h3>Overall History (All Departments)</h3>
+<table id="dashHistory"></table>
+</div>
+</div>
+
 <script>
-/* USERS (STATIC LOGIN) */
-const users = {
-  mani:{pwd:"mani",role:"admin",dept:"IT"},
-  manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
-  gothavari:{pwd:"gothavari",role:"admin",dept:"HR"},
-  naga:{pwd:"naga",role:"emp",dept:"IT"},
-  sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"},
-  preethi:{pwd:"preethi",role:"emp",dept:"Sales"},
-  navya:{pwd:"navya",role:"emp",dept:"Accounts"}
-}
+const users={
+ dash:{pwd:"dash",role:"super"},
+ mani:{pwd:"mani",role:"admin",dept:"IT"},
+ manoj:{pwd:"manoj",role:"admin",dept:"Sales"},
+ naga:{pwd:"naga",role:"emp",dept:"IT"},
+ sakthi:{pwd:"sakthi",role:"emp",dept:"Sales"}
+};
+const departments=["IT","Sales","HR","Accounts"];
+let currentUser={},approvedChart,pendingChart;
 
-let currentUser = {}
-
-/* LOGIN */
 function login(){
-  const u = username.value.trim().toLowerCase()
-  const p = password.value.trim()
-  if(users[u] && users[u].pwd === p){
-    currentUser = {name:u, ...users[u]}
-    loginPage.style.display="none"
-    dashboard.style.display="flex"
-    uName.innerText = currentUser.name
-    uDept.innerText = currentUser.dept
-    uRole.innerText = currentUser.role
-    loadHistory()
-    listenRealtime()
-  } else {
-    msg.innerText = "Invalid Login"
+ let u=username.value.toLowerCase();
+ if(users[u] && users[u].pwd===password.value){
+  currentUser={name:u,...users[u]};
+  loginPage.style.display="none";
+
+  if(currentUser.role==="super"){
+   dashboard.style.display="block";
+   initAll(); loadDashboard(); loadDashHistory();
+  }else{
+   userPage.style.display="block";
+   uName.innerHTML=currentUser.name;
+   uDept.innerHTML=currentUser.dept;
+   uRole.innerHTML=currentUser.role;
+   initDept(currentUser.dept);
+   loadHistory();
+   if(currentUser.role==="admin"){approvalBox.style.display="block";loadApprovals();}
   }
+ }else msg.innerHTML="Invalid Login";
 }
 
-/* SEND REQUEST */
-async function sendRequest(){
-  if(!item.value || amount.value <= 0) return
+function initDept(d){
+ let data=localStorage.getItem(d);
+ if(!data) localStorage.setItem(d,JSON.stringify({budget:500000,history:[]}));
+}
+function initAll(){departments.forEach(initDept);}
 
-  const { error } = await supabase
-    .from('requests')
-    .insert([{
-      user: currentUser.name,
-      dept: currentUser.dept,
-      item: item.value,
-      amount: Number(amount.value),
-      status: 'pending'
-    }])
+function sendRequest(){
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ d.history.push({user:currentUser.name,item:item.value,amount:+amount.value,status:"pending"});
+ localStorage.setItem(currentUser.dept,JSON.stringify(d));
+ info.innerHTML="Request sent";
+ item.value=amount.value="";
+ loadHistory();
+}
 
-  if(error){
-    console.error(error)
-    info.innerText = "Error sending request"
-  } else {
-    info.innerText = "Request sent"
-    item.value=""
-    amount.value=""
+function loadApprovals(){
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ approvalTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amount</th><th>Action</th></tr>";
+ d.history.forEach((h,i)=>{
+  if(h.status==="pending"){
+   approvalTable.innerHTML+=`
+   <tr>
+    <td>${h.user}</td><td>${h.item}</td><td>${h.amount}</td>
+    <td>
+     <button class="btn-green" onclick="updateReq(${i},'approved')">Approve</button>
+     <button class="btn-red" onclick="updateReq(${i},'cancelled')">Deny</button>
+    </td>
+   </tr>`;
   }
+ });
+}
+function updateReq(i,s){
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ d.history[i].status=s;
+ localStorage.setItem(currentUser.dept,JSON.stringify(d));
+ loadApprovals();loadHistory();
 }
 
-/* LOAD HISTORY */
-async function loadHistory(){
-  const { data, error } = await supabase
-    .from('requests')
-    .select('*')
-    .order('created_at', { ascending:false })
-
-  if(error){
-    console.error(error)
-    return
+function loadHistory(){
+ let d=JSON.parse(localStorage.getItem(currentUser.dept));
+ historyTable.innerHTML="<tr><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
+ d.history.forEach(h=>{
+  if(currentUser.role==="admin" || h.user===currentUser.name){
+   historyTable.innerHTML+=`
+   <tr>
+    <td>${h.user}</td><td>${h.item}</td><td>${h.amount}</td>
+    <td class="${h.status}">${h.status}</td>
+   </tr>`;
   }
-
-  historyTable.innerHTML =
-    "<tr><th>User</th><th>Dept</th><th>Item</th><th>Amount</th><th>Status</th></tr>"
-
-  data.forEach(r=>{
-    if(currentUser.role==='admin' || r.user===currentUser.name){
-      historyTable.innerHTML += `
-        <tr>
-          <td>${r.user}</td>
-          <td>${r.dept}</td>
-          <td>${r.item}</td>
-          <td>${r.amount}</td>
-          <td class="${r.status}">${r.status}</td>
-        </tr>`
-    }
-  })
+ });
 }
 
-/* REALTIME LISTENER */
-function listenRealtime(){
-  supabase
-    .channel('requests-realtime')
-    .on(
-      'postgres_changes',
-      { event:'*', schema:'public', table:'requests' },
-      () => loadHistory()
-    )
-    .subscribe()
+function loadDashboard(){
+ let totalB=0,totalU=0,pending=0;
+ let aData=[],pData=[];
+ deptTable.innerHTML="<tr><th>Dept</th><th>Budget</th><th>Approved</th><th>Pending</th></tr>";
+
+ departments.forEach(dep=>{
+  let d=JSON.parse(localStorage.getItem(dep));
+  let a=0,p=0;
+  d.history.forEach(h=>{
+   if(h.status==="approved") a+=h.amount;
+   if(h.status==="pending") p++;
+  });
+  totalB+=d.budget; totalU+=a; pending+=p;
+  aData.push(a); pData.push(p);
+  deptTable.innerHTML+=`<tr><td>${dep}</td><td>${d.budget}</td><td>${a}</td><td>${p}</td></tr>`;
+ });
+
+ totalBudget.innerHTML=totalB;
+ totalUsed.innerHTML=totalU;
+ pendingCount.innerHTML=pending;
+ drawCharts(aData,pData);
 }
 
-function logout(){
-  location.reload()
+function loadDashHistory(){
+ dashHistory.innerHTML="<tr><th>Dept</th><th>User</th><th>Item</th><th>Amount</th><th>Status</th></tr>";
+ departments.forEach(dep=>{
+  let d=JSON.parse(localStorage.getItem(dep));
+  d.history.forEach(h=>{
+   dashHistory.innerHTML+=`
+   <tr>
+    <td>${dep}</td><td>${h.user}</td><td>${h.item}</td>
+    <td>${h.amount}</td><td class="${h.status}">${h.status}</td>
+   </tr>`;
+  });
+ });
 }
+
+function drawCharts(a,p){
+ if(approvedChart) approvedChart.destroy();
+ if(pendingChart) pendingChart.destroy();
+ approvedChart=new Chart(document.getElementById("approvedChart"),{
+  type:"bar",
+  data:{labels:departments,datasets:[{label:"Approved",data:a,backgroundColor:"#007bff"}]}
+ });
+ pendingChart=new Chart(document.getElementById("pendingChart"),{
+  type:"pie",
+  data:{labels:departments,datasets:[{data:p}]}
+ });
+}
+
+function logout(){location.reload();}
 </script>
-
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
